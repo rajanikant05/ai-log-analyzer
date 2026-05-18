@@ -1,0 +1,4 @@
+Error: Connection timeout to database
+Retrying...
+Error: Connection refused
+Service crashed after 3 retries
