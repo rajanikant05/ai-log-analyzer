@@ -1,0 +1,11 @@
+2026-05-19 10:01:22 INFO Starting deployment...
+
+2026-05-19 10:01:25 ERROR Database connection timeout
+
+2026-05-19 10:01:26 ERROR Retry attempt 1
+
+2026-05-19 10:01:28 ERROR Retry attempt 2
+
+2026-05-19 10:01:30 ERROR Service crashed
+
+2026-05-19 10:01:31 INFO Deployment failed

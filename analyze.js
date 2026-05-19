@@ -1,6 +1,9 @@
 import fs from "fs";
 import dotenv from "dotenv";
 import { GoogleGenerativeAI } from "@google/generative-ai";
+import { cleanLogs } from "./utils/cleanLogs.js";
+import { cleanJSON } from "./utils/cleanJSON.js";
+import { retry } from "./utils/retry.js";
 
 dotenv.config();
 
@@ -10,12 +13,31 @@ const model = genAI.getGenerativeModel({
   model: "gemini-3.1-flash-lite-preview", // 15 RPM, 500 RPD
 });
 
-async function analyzeLogs(logs, retries = 5, delay = 3000) {
+async function analyzeLogs(logs) {
+  const cleanedLogs = cleanLogs(logs);
   const prompt = `
-You are a senior DevOps engineer.
+You are a senior Site Reliability Engineer (SRE) and DevOps architect.
 
-Analyze the logs and respond STRICTLY in JSON format:
+Your task:
+1. Identify the PRIMARY error.
+2. Determine the MOST LIKELY root cause.
+3. Suggest a PRACTICAL fix.
+4. Classify severity.
 
+Rules:
+- Ignore duplicate/repeated logs.
+- Focus on the first meaningful failure.
+- Keep responses concise.
+- Return ONLY valid JSON.
+- No markdown.
+- No explanations outside JSON.
+
+Severity rules:
+- low -> warnings/non-blocking
+- medium -> partial failures
+- high -> deployment crash/service down
+
+Response format:
 {
   "error": "...",
   "root_cause": "...",
@@ -24,30 +46,21 @@ Analyze the logs and respond STRICTLY in JSON format:
 }
 
 Logs:
-${logs}
+${cleanedLogs}
 `;
 
-  for (let attempt = 1; attempt <= retries; attempt++) {
-    try {
-      const result = await model.generateContent(prompt);
-      const response = await result.response;
-      const text = response.text();
+  const result = await retry(() => model.generateContent(prompt));
+  const response = await result.response;
+  const text = response.text();
 
-      try {
-        const cleaned = text.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "").trim();
-        return JSON.parse(cleaned);
-      } catch (e) {
-        return { error: "Parsing failed", raw: text };
-      }
-    } catch (err) {
-      if (err.status === 503 && attempt < retries) {
-        console.error(`Attempt ${attempt} failed (503). Retrying in ${delay / 1000}s...`);
-        await new Promise((res) => setTimeout(res, delay));
-        delay *= 2;
-      } else {
-        throw err;
-      }
-    }
+  const cleaned = cleanJSON(text);
+  try {
+    return JSON.parse(cleaned);
+  } catch (e) {
+    return {
+      error: "Parsing failed",
+      raw: cleaned,
+    };
   }
 }
 
