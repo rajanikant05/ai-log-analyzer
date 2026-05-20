@@ -10,25 +10,33 @@ Simple Node.js POC to analyze logs with AI.
 npm install
 ```
 
-2. Create your local env file from template:
+2. Export your API key in the shell:
 
 ```bash
-cp .env.example .env
+export GEMINI_API_KEY="your_real_api_key"
 ```
 
-3. Update `.env` with your real key:
+## Project Structure
 
-```env
-GEMINI_API_KEY=your_real_api_key
-```
+- `src/analyze.js` - Main analyzer entrypoint
+- `src/prompts/basePrompt.js` - Base AI prompt template
+- `src/utils/` - Cleaning, retry, and known-issue detection helpers
+- `src/data/knownIssues.js` - Organizational known patterns
+- `src/logs/` - Sample log files for testing
 
 ## Run
 
 ```bash
-node analyze.js
+node src/analyze.js src/logs/sample.log
+```
+
+Terraform example:
+
+```bash
+node src/analyze.js src/logs/terraform.log
 ```
 
 ## Security
 
-- `.env` is ignored by git and should never be committed.
-- `.env.example` is safe to commit and documents required variables.
+- Do not commit real API keys.
+- Prefer shell environment variables for secrets.

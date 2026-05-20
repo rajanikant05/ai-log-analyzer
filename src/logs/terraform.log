@@ -1,0 +1,4 @@
+2026-05-20 09:14:10 INFO Running terraform apply
+2026-05-20 09:14:15 ERROR Error: creating Lambda Function
+2026-05-20 09:14:15 ERROR AccessDeniedException: User is not authorized to perform lambda:CreateFunction
+2026-05-20 09:14:16 ERROR Terraform apply failed
