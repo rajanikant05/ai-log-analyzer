@@ -1,11 +1,14 @@
 import fs from "fs";
-import dotenv from "dotenv";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { cleanLogs } from "./utils/cleanLogs.js";
 import { cleanJSON } from "./utils/cleanJSON.js";
 import { retry } from "./utils/retry.js";
+import { detectKnownIssues } from "./utils/detectKnownIssues.js";
+import { buildBasePrompt } from "./prompts/basePrompt.js";
 
-dotenv.config();
+if (!process.env.GEMINI_API_KEY) {
+  throw new Error("GEMINI_API_KEY is missing. Export it in your shell before running the analyzer.");
+}
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
@@ -15,39 +18,20 @@ const model = genAI.getGenerativeModel({
 
 async function analyzeLogs(logs) {
   const cleanedLogs = cleanLogs(logs);
-  const prompt = `
-You are a senior Site Reliability Engineer (SRE) and DevOps architect.
+  const knownIssue = detectKnownIssues(cleanedLogs);
 
-Your task:
-1. Identify the PRIMARY error.
-2. Determine the MOST LIKELY root cause.
-3. Suggest a PRACTICAL fix.
-4. Classify severity.
+  if (knownIssue.matched) {
+    return {
+      category: "known_issue",
+      error: knownIssue.issue,
+      root_cause: "Matched organizational known-issue pattern in logs",
+      fix: knownIssue.suggested_fix,
+      severity: "high",
+      confidence: "high",
+    };
+  }
 
-Rules:
-- Ignore duplicate/repeated logs.
-- Focus on the first meaningful failure.
-- Keep responses concise.
-- Return ONLY valid JSON.
-- No markdown.
-- No explanations outside JSON.
-
-Severity rules:
-- low -> warnings/non-blocking
-- medium -> partial failures
-- high -> deployment crash/service down
-
-Response format:
-{
-  "error": "...",
-  "root_cause": "...",
-  "fix": "...",
-  "severity": "low | medium | high"
-}
-
-Logs:
-${cleanedLogs}
-`;
+  const prompt = buildBasePrompt(cleanedLogs);
 
   const result = await retry(() => model.generateContent(prompt));
   const response = await result.response;
@@ -68,7 +52,7 @@ async function main() {
   const file = process.argv[2];
 
   if (!file) {
-    console.log("Usage: node analyze.js <logfile>");
+    console.log("Usage: node src/analyze.js <logfile>");
     process.exit(1);
   }
 
